@@ -300,9 +300,68 @@ public class ElderPasswordScript : MonoBehaviour
         Debug.LogFormat(@"[Elder Password #{0}] ----------DEFUSER INPUT----------", moduleId, rnd.Seed);
     }
 
+    private IEnumerator Toggle(int amount, bool up)
+    {
+        if (up)
+        {
+            for (int i = 0; i < amount; i++)
+            {
+                for (int j = 0; j < uArrows.Length; j++)
+                {
+                    uArrows[j].OnInteract();
+                }
+                if (amount != 1)
+                    yield return new WaitForSeconds(10f);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < amount; i++)
+            {
+                for (int j = 0; j < dArrows.Length; j++)
+                {
+                    dArrows[j].OnInteract();
+                }
+                if (amount != 1)
+                    yield return new WaitForSeconds(10f);
+            }
+        }
+
+        cycleActive = false;
+        yield break;
+    }
+
+    private IEnumerator Cycle(int position, bool all)
+    {
+        if (all)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                for (int j = 0; j < 6; j++)
+                {
+                    uArrows[i].OnInteract();
+                    yield return new WaitForSeconds(3f);
+                }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                uArrows[position - 1].OnInteract();
+                yield return new WaitForSeconds(3f);
+            }
+
+            
+        }
+
+        cycleActive = false;
+        yield break;
+    }
+
     //Twitch Plays help message
 #pragma warning disable 0414
-    private readonly string TwitchHelpMessage = "!{0} up/down 1 [press the up or down arrow in the first position | !{0} cycle 2 [cycle through all letters in the second position] | !{0} cycle all [cycle through all letters in every position] | !{0} toggle up/down 2 [presses the up or down arrow in every position twice] |!{0} submit [press the submit button] | !{0} aliyas [Input ALIYAS as password - The module will strike you if it is incorrect!]";
+    private readonly string TwitchHelpMessage = "!{0} up/down 1 [press the up or down arrow in the first position | !{0} cycle 2 [cycle through all letters in the second position] | !{0} cycle all [cycle through all letters in every position] | !{0} toggle up/down 2 [presses the up or down arrow in every position twice] |!{0} submit [press the submit button] | !{0} toggle [shortcut to !{0} toggle down 1] | !{0} cancel toggle/cycle [cancels the current going toggle or cycle] | !{0} aliyas [Input ALIYAS as password - The module will strike you if it is incorrect!]";
 #pragma warning restore 0414
 
     //Twitch Plays code
@@ -321,9 +380,10 @@ public class ElderPasswordScript : MonoBehaviour
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
 
             Submit.OnInteract();
             Debug.LogFormat(@"[Elder Password #{0}] TP: Pressed submit", moduleId);
@@ -334,9 +394,10 @@ public class ElderPasswordScript : MonoBehaviour
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
 
             var position = int.Parse(m.Groups["position"].ToString());
             uArrows[position - 1].OnInteract();
@@ -348,9 +409,10 @@ public class ElderPasswordScript : MonoBehaviour
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
 
             var position = int.Parse(m.Groups["position"].ToString());
             dArrows[position - 1].OnInteract();
@@ -362,20 +424,16 @@ public class ElderPasswordScript : MonoBehaviour
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
 
             cycleActive = true;
 
             var position = int.Parse(m.Groups["position"].ToString());
-            for (int i = 0; i < 6; i++)
-            {
-                uArrows[position - 1].OnInteract();
-                yield return new WaitForSeconds(1.5f);
-            }
 
-            cycleActive = false;
+            StartCoroutine(Cycle(position, false));
 
             Debug.LogFormat(@"[Elder Password #{0}] TP: Cycled through the letters in position {1}", moduleId, position.ToString());
             yield break;
@@ -385,22 +443,14 @@ public class ElderPasswordScript : MonoBehaviour
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
 
             cycleActive = true;
 
-            for (int i = 0; i < 6; i++)
-            {
-                for (int j = 0; j < 6; j++)
-                {
-                    uArrows[i].OnInteract();
-                    yield return new WaitForSeconds(1.5f);
-                }
-            }
-
-            cycleActive = false;
+            StartCoroutine(Cycle(0, true));
 
             Debug.LogFormat(@"[Elder Password #{0}] TP: Cycled through the letters in every position", moduleId);
             yield break;
@@ -410,20 +460,17 @@ public class ElderPasswordScript : MonoBehaviour
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
+
+            cycleActive = true;
 
             var amount = int.Parse(m.Groups["amount"].ToString());
 
-            for (int i = 0; i < amount; i++)
-            {
-                for (int j = 0; j < uArrows.Length; j++)
-                {
-                    uArrows[j].OnInteract();
-                }
-                yield return new WaitForSeconds(1.5f);
-            }
+            StartCoroutine(Toggle(amount, true));
+
             Debug.LogFormat(@"[Elder Password #{0}] TP: Toggled the up arrow in every position {1} {2}", moduleId, amount, amount == 1 ? "time" : "times");
             yield break;
         }
@@ -432,31 +479,53 @@ public class ElderPasswordScript : MonoBehaviour
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
+
+            cycleActive = true;
 
             var amount = int.Parse(m.Groups["amount"].ToString());
 
-            for (int i = 0; i < amount; i++)
-            {
-                for (int j = 0; j < dArrows.Length; j++)
-                {
-                    dArrows[j].OnInteract();
-                }
-                yield return new WaitForSeconds(1.5f);
-            }
+            StartCoroutine(Toggle(amount, false));
+
             Debug.LogFormat(@"[Elder Password #{0}] TP: Toggled the down arrow in every position {1} {2}", moduleId, amount, amount == 1 ? "time" : "times");
+
             yield break;
         }
 
+        else if ((m = Regex.Match(command, @"^\s*(toggle)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                dArrows[i].OnInteract();
+            }
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Toggled the down arrow in every position once", moduleId);
+            yield break;
+        }
+        else if ((m = Regex.Match(command, @"^\s*(cancel cycle|cancel toggle)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+            StopAllCoroutines();
+            cycleActive = false;
+            yield break;
+        }
         else if ((m = Regex.Match(command, @"^\s*(?<password>[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
         {
             yield return null;
 
-            do
-                yield return "trycancel";
-            while (cycleActive);
+            if (cycleActive)
+            {
+                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+            }
 
             var password = m.Groups["password"].ToString();
             if (word.EqualsIgnoreCase(password))
