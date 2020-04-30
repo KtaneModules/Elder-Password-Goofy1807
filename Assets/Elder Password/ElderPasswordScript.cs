@@ -302,7 +302,7 @@ public class ElderPasswordScript : MonoBehaviour
 
     //Twitch Plays help message
 #pragma warning disable 0414
-    private readonly string TwitchHelpMessage = "!{0} up 1 [press the up arrow in the first position | !{0} down 3 [press the down arrow in the third position] | !{0} cycle 2 [cycle through all letters in the second position] | !{0} cycle all [cycle through all letters in every position] | !{0} submit [press the submit button] | !{0} aliyas [Input ALIYAS as password - The module will strike you if it is incorrect!]";
+    private readonly string TwitchHelpMessage = "!{0} up/down 1 [press the up or down arrow in the first position | !{0} cycle 2 [cycle through all letters in the second position] | !{0} cycle all [cycle through all letters in every position] | !{0} toggle up/down 2 [presses the up or down arrow in every position twice] |!{0} submit [press the submit button] | !{0} aliyas [Input ALIYAS as password - The module will strike you if it is incorrect!]";
 #pragma warning restore 0414
 
     //Twitch Plays code
@@ -403,6 +403,50 @@ public class ElderPasswordScript : MonoBehaviour
             cycleActive = false;
 
             Debug.LogFormat(@"[Elder Password #{0}] TP: Cycled through the letters in every position", moduleId);
+            yield break;
+        }
+
+        else if ((m = Regex.Match(command, @"^\s*(toggle up)\s+(?<amount>[123456])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            var amount = int.Parse(m.Groups["amount"].ToString());
+
+            for (int i = 0; i < amount; i++)
+            {
+                for (int j = 0; j < uArrows.Length; j++)
+                {
+                    uArrows[j].OnInteract();
+                }
+                yield return new WaitForSeconds(1.5f);
+            }
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Toggled the up arrow in every position {1} {2}", moduleId, amount, amount == 1 ? "time" : "times");
+            yield break;
+        }
+
+        else if ((m = Regex.Match(command, @"^\s*(toggle down)\s+(?<amount>[123456])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            var amount = int.Parse(m.Groups["amount"].ToString());
+
+            for (int i = 0; i < amount; i++)
+            {
+                for (int j = 0; j < dArrows.Length; j++)
+                {
+                    dArrows[j].OnInteract();
+                }
+                yield return new WaitForSeconds(1.5f);
+            }
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Toggled the down arrow in every position {1} {2}", moduleId, amount, amount == 1 ? "time" : "times");
             yield break;
         }
 
