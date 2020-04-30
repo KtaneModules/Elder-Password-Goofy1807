@@ -69,6 +69,13 @@ public class ElderPasswordScript : MonoBehaviour
 
     private Vector3[] positions = new Vector3[] { new Vector3(-0.007f, 0, -0.07f), new Vector3(0.01f, 0, -0.07f), new Vector3(0.02764f, 0, -0.07f), new Vector3(0.045f, 0, -0.07f), new Vector3(0.0628f, 0, -0.07f), new Vector3(0.08025f, 0, -0.07f) };
 
+    private KMSelectable[] uArrows;
+    private KMSelectable[] dArrows;
+
+    private bool cycleActive = false;
+    private bool tpSolve = false;
+    private bool tpStrike = false;
+
     //OnInteractHandler delegate for the arrows
     private KMSelectable.OnInteractHandler ArrowPressed(int pos)
     {
@@ -76,8 +83,9 @@ public class ElderPasswordScript : MonoBehaviour
         {
             //Return if module is already solved
             if (moduleSolved)
-
                 return false;
+            Arrows[pos].AddInteractionPunch();
+            Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, Arrows[pos].transform);
             switch (pos)
             {
                 case 0:
@@ -184,24 +192,29 @@ public class ElderPasswordScript : MonoBehaviour
             if (moduleSolved)
                 return false;
 
+            Submit.AddInteractionPunch();
+            Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, Submit.transform);
+
             //Check if the runes are correct
             for (int i = 0; i < currentActiveRune.Length; i++)
             {
-                
+
                 if (currentActiveRune[i] == correctLetterIxs[i])
                     continue;
                 else
                 {
                     //One or more runes are incorrect
                     GetComponent<KMBombModule>().HandleStrike();
-                    Debug.LogFormat(@"[Elder Password #{0}] Current selected runes: {1} - Strike!", moduleId, usedLetters.Select((ar, ix) => ar[currentActiveRune[ix]].name).Join(", "));
+                    if (!tpStrike)
+                        Debug.LogFormat(@"[Elder Password #{0}] Current selected runes: {1} - Strike!", moduleId, usedLetters.Select((ar, ix) => ar[currentActiveRune[ix]].name).Join(", "));
                     return false;
                 }
             }
             //All runes are correct
             GetComponent<KMBombModule>().HandlePass();
             moduleSolved = true;
-            Debug.LogFormat(@"[Elder Password #{0}] Current selected runes: {1} - Module solved!", moduleId, usedLetters.Select((ar, ix) => ar[currentActiveRune[ix]].name).Join(", "));
+            if (!tpSolve)
+                Debug.LogFormat(@"[Elder Password #{0}] Current selected runes: {1} - Module solved!", moduleId, usedLetters.Select((ar, ix) => ar[currentActiveRune[ix]].name).Join(", "));
             return false;
         };
 
@@ -218,6 +231,10 @@ public class ElderPasswordScript : MonoBehaviour
         // Assign the Arrows to their delegates
         for (int i = 0; i < Arrows.Length; i++)
             Arrows[i].OnInteract += ArrowPressed(i);
+
+        // Assign the down arrows and up arrows to their arrays
+        uArrows = new KMSelectable[] { Arrows[0], Arrows[2], Arrows[4], Arrows[6], Arrows[8], Arrows[10] };
+        dArrows = new KMSelectable[] { Arrows[1], Arrows[3], Arrows[5], Arrows[7], Arrows[9], Arrows[11] };
 
         //Fill the 'letters' list with the rune names
         allLettersTranslated = Letters.Select(g => g.name).ToList();
@@ -285,82 +302,151 @@ public class ElderPasswordScript : MonoBehaviour
 
     //Twitch Plays help message
 #pragma warning disable 0414
-    private readonly string TwitchHelpMessage = "!{0} up 1 [press the up arrow in the first position | !{0} down 3 [press the down arrow in the third position] | !{0} submit [press the submit button]";
+    private readonly string TwitchHelpMessage = "!{0} up 1 [press the up arrow in the first position | !{0} down 3 [press the down arrow in the third position] | !{0} cycle 2 [cycle through all letters in the second position] | !{0} cycle all [cycle through all letters in every position] | !{0} submit [press the submit button] | !{0} aliyas [Input ALIYAS as password - The module will strike you if it is incorrect!]";
 #pragma warning restore 0414
 
     //Twitch Plays code
     private IEnumerator ProcessTwitchCommand(string command)
     {
-        if (Regex.IsMatch(command, @"^\s*submit\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        Match m;
+
+        if (moduleSolved)
         {
-            yield return null;
-            Submit.OnInteract();
+            yield return "sendtochaterror The module is already solved.";
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Tried to interact with the module when it's already solved", moduleId);
             yield break;
         }
 
-        Match m;
-        if ((m = Regex.Match(command, @"^\s*(up)\s+(?<position>[123456])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        if (Regex.IsMatch(command, @"^\s*submit\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
         {
-            if (moduleSolved)
-            {
-                yield return "sendtochaterror The module is already solved.";
-                yield break;
-            }
-            var position = int.Parse(m.Groups["position"].ToString());
-            switch (position)
-            {
-                case 1:
-                    Arrows[0].OnInteract();
-                    yield break;
-                case 2:
-                    Arrows[2].OnInteract();
-                    yield break;
-                case 3:
-                    Arrows[4].OnInteract();
-                    yield break;
-                case 4:
-                    Arrows[6].OnInteract();
-                    yield break;
-                case 5:
-                    Arrows[8].OnInteract();
-                    yield break;
-                case 6:
-                    Arrows[10].OnInteract();
-                    yield break;
-                default:
-                    yield return "sendtochaterror Invalid Command";
-                    yield break;
-            }
-        }
-        else if ((m = Regex.Match(command, @"^\s*(down)\s+(?<position>[123456])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
-        {
-            var position = int.Parse(m.Groups["position"].ToString());
-            switch (position)
-            {
-                case 1:
-                    Arrows[1].OnInteract();
-                    yield break;
-                case 2:
-                    Arrows[3].OnInteract();
-                    yield break;
-                case 3:
-                    Arrows[5].OnInteract();
-                    yield break;
-                case 4:
-                    Arrows[7].OnInteract();
-                    yield break;
-                case 5:
-                    Arrows[9].OnInteract();
-                    yield break;
-                case 6:
-                    Arrows[11].OnInteract();
-                    yield break;
-                default:
-                    yield return "sendtochaterror Invalid Command";
-                    yield break;
-            }
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            Submit.OnInteract();
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Pressed submit", moduleId);
+            yield break;
         }
 
+        if ((m = Regex.Match(command, @"^\s*(up)\s+(?<position>[123456])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            var position = int.Parse(m.Groups["position"].ToString());
+            uArrows[position - 1].OnInteract();
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Pressed the up arrow in position {1}", moduleId, position.ToString());
+            yield break;
+        }
+
+        else if ((m = Regex.Match(command, @"^\s*(down)\s+(?<position>[123456])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            var position = int.Parse(m.Groups["position"].ToString());
+            dArrows[position - 1].OnInteract();
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Pressed the down arrow in position {1}", moduleId, position.ToString());
+            yield break;
+        }
+
+        else if ((m = Regex.Match(command, @"^\s*(cycle)\s+(?<position>[123456])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            cycleActive = true;
+
+            var position = int.Parse(m.Groups["position"].ToString());
+            for (int i = 0; i < 6; i++)
+            {
+                uArrows[position - 1].OnInteract();
+                yield return new WaitForSeconds(1.5f);
+            }
+
+            cycleActive = false;
+
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Cycled through the letters in position {1}", moduleId, position.ToString());
+            yield break;
+        }
+
+        else if ((m = Regex.Match(command, @"^\s*(cycle all)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            cycleActive = true;
+
+            for (int i = 0; i < 6; i++)
+            {
+                for (int j = 0; j < 6; j++)
+                {
+                    uArrows[i].OnInteract();
+                    yield return new WaitForSeconds(1.5f);
+                }
+            }
+
+            cycleActive = false;
+
+            Debug.LogFormat(@"[Elder Password #{0}] TP: Cycled through the letters in every position", moduleId);
+            yield break;
+        }
+
+        else if ((m = Regex.Match(command, @"^\s*(?<password>[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        {
+            yield return null;
+
+            do
+                yield return "trycancel";
+            while (cycleActive);
+
+            var password = m.Groups["password"].ToString();
+            if (word.EqualsIgnoreCase(password))
+            {
+                tpSolve = true;
+                for (int i = 0; i < 6; i++)
+                {
+                    do
+                    {
+                        uArrows[i].OnInteract();
+                        yield return new WaitForSeconds(0.1f);
+                    }
+                    while (currentActiveRune[i] != correctLetterIxs[i]);
+                }
+
+                Debug.LogFormat(@"[Elder Password #{0}] TP: Tried to input {1} as password - Solve!", moduleId, password.ToUpperInvariant());
+            }
+            else
+            {
+                tpStrike = true;
+            }
+
+            Submit.OnInteract();
+            if (tpStrike)
+            {
+                Debug.LogFormat(@"[Elder Password #{0}] TP: Tried to input {1} as password - Strike!", moduleId, password.ToUpperInvariant());
+                tpStrike = false;
+                yield return "sendtochaterror Incorrect password - Strike.";
+            }
+            yield break;
+        }
+
+        else
+            yield return "sendtochaterror Invalid Command";
     }
 }
 
