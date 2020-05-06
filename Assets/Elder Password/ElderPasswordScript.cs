@@ -66,6 +66,7 @@ public class ElderPasswordScript : MonoBehaviour
     };
     private int[] currentActiveRune = new int[] { 0, 0, 0, 0, 0, 0 };
     private int[] correctLetterIxs = new int[] { 0, 0, 0, 0, 0, 0 };
+    private int[][] letterIxs;
 
     private Vector3[] positions = new Vector3[] { new Vector3(-0.007f, 0, -0.07f), new Vector3(0.01f, 0, -0.07f), new Vector3(0.02764f, 0, -0.07f), new Vector3(0.045f, 0, -0.07f), new Vector3(0.0628f, 0, -0.07f), new Vector3(0.08025f, 0, -0.07f) };
 
@@ -198,7 +199,6 @@ public class ElderPasswordScript : MonoBehaviour
             //Check if the runes are correct
             for (int i = 0; i < currentActiveRune.Length; i++)
             {
-
                 if (currentActiveRune[i] == correctLetterIxs[i])
                     continue;
                 else
@@ -240,29 +240,30 @@ public class ElderPasswordScript : MonoBehaviour
         allLettersTranslated = Letters.Select(g => g.name).ToList();
 
         //Fill the 'toFuthark' Dictionary
-        for (int i = 0; i < allLettersTranslated.Count; i++)
+        for (int i = 0; i < alphabet.Length; i++)
             for (int j = 0; j < alphabet[i].Length; j++)
                 toFuthark[alphabet[i][j]] = i;
 
         //Pick one random words out of the 208 givens
         word = _Words[Random.Range(0, 26)][Random.Range(0, 8)];
 
-    retry:
-        var letterIxs = new List<int>[6];
+        retry:
+        letterIxs = new int[6][];
         for (int i = 0; i < 6; i++)
         {
             var indexes = Enumerable.Range(0, Letters.Length).ToList();
             indexes.Shuffle();
 
             // Add the correct letter for this slot
-            letterIxs[i] = new List<int> { toFuthark[word[i]] };
+            var lIxs = new List<int> { toFuthark[word[i]] };
             indexes.Remove(toFuthark[word[i]]);
 
             // Add the remaining 5 decoy letters
-            letterIxs[i].AddRange(indexes.Take(5));
-            letterIxs[i].Shuffle();
+            lIxs.AddRange(indexes.Take(5));
+            lIxs.Shuffle();
 
-            correctLetterIxs[i] = letterIxs[i].IndexOf(toFuthark[word[i]]);
+            correctLetterIxs[i] = lIxs.IndexOf(toFuthark[word[i]]);
+            letterIxs[i] = lIxs.ToArray();
         }
 
         //Try again if another word could be formed until only the selected word can be formed
@@ -280,6 +281,7 @@ public class ElderPasswordScript : MonoBehaviour
                 usedLetters[i][j] = Instantiate(allLetters[i][j]);
                 usedLetters[i][j].transform.parent = transform.Find("Letters");
                 usedLetters[i][j].transform.localPosition = positions[i];
+                usedLetters[i][j].transform.localRotation = Quaternion.identity;
                 usedLetters[i][j].transform.localScale = new Vector3(1f, 1f, 1f);
                 usedLetters[i][j].name = usedLetters[i][j].name.Remove(usedLetters[i][j].name.Length - 7, 7);
             }
@@ -352,7 +354,7 @@ public class ElderPasswordScript : MonoBehaviour
                 yield return new WaitForSeconds(3f);
             }
 
-            
+
         }
 
         cycleActive = false;
@@ -518,44 +520,37 @@ public class ElderPasswordScript : MonoBehaviour
             cycleActive = false;
             yield break;
         }
-        else if ((m = Regex.Match(command, @"^\s*(?<password>[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz])\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
+        else if ((m = Regex.Match(command, @"^\s*(?<password>[a-z]{6})\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)).Success)
         {
-            yield return null;
-
             if (cycleActive)
             {
-                yield return "sendtochaterror Elder Password is currently cycling/toggeling. Please cancel the cycle or toggle first before interacting with the module";
+                yield return "sendtochaterror Elder Password is currently cycling/toggling. Please cancel the cycle or toggle first before interacting with the module";
+                yield break;
             }
 
-            var password = m.Groups["password"].ToString();
-            if (word.EqualsIgnoreCase(password))
+            yield return null;
+
+            var password = m.Groups["password"].Value.ToUpperInvariant();
+            var passwordFuthark = password.Select(ch => toFuthark[ch]).ToArray();
+
+            for (var i = 0; i < 6; i++)
             {
-                tpSolve = true;
-                for (int i = 0; i < 6; i++)
+                for (var toggles = 0; toggles < 6; toggles++)
                 {
-                    do
-                    {
-                        uArrows[i].OnInteract();
-                        yield return new WaitForSeconds(0.1f);
-                    }
-                    while (currentActiveRune[i] != correctLetterIxs[i]);
+                    if (letterIxs[i][currentActiveRune[i]] == passwordFuthark[i])
+                        break;
+                    dArrows[i].OnInteract();
+                    yield return new WaitForSeconds(0.1f);
                 }
-
-                Debug.LogFormat(@"[Elder Password #{0}] TP: Tried to input {1} as password - Solve!", moduleId, password.ToUpperInvariant());
-            }
-            else
-            {
-                tpStrike = true;
+                if (letterIxs[i][currentActiveRune[i]] != passwordFuthark[i])
+                {
+                    yield return "sendtochaterror One of the letters in the specified password is not on the module. Please only submit possible answers!";
+                    yield return "unsubmittablepenalty";
+                    yield break;
+                }
             }
 
             Submit.OnInteract();
-            if (tpStrike)
-            {
-                Debug.LogFormat(@"[Elder Password #{0}] TP: Tried to input {1} as password - Strike!", moduleId, password.ToUpperInvariant());
-                tpStrike = false;
-                yield return "sendtochaterror Incorrect password - Strike.";
-            }
-            yield break;
         }
 
         else
