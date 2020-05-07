@@ -247,7 +247,7 @@ public class ElderPasswordScript : MonoBehaviour
         //Pick one random words out of the 208 givens
         word = _Words[Random.Range(0, 26)][Random.Range(0, 8)];
 
-        retry:
+    retry:
         letterIxs = new int[6][];
         for (int i = 0; i < 6; i++)
         {
@@ -289,7 +289,7 @@ public class ElderPasswordScript : MonoBehaviour
         }
 
         //Log output
-        Debug.LogFormat(@"[Elder Password #{0}] ----------MODULE SETUP----------", moduleId, rnd.Seed);
+        Debug.LogFormat(@"[Elder Password #{0}] ----------MODULE SETUP----------", moduleId);
         Debug.LogFormat(@"[Elder Password #{0}] Rule Seed: {1}", moduleId, rnd.Seed);
         Debug.LogFormat(@"[Elder Password #{0}] Picked Word: {1}", moduleId, word);
         Debug.LogFormat(@"[Elder Password #{0}] ----------Picked Runes----------", moduleId);
@@ -299,7 +299,7 @@ public class ElderPasswordScript : MonoBehaviour
         Debug.LogFormat(@"[Elder Password #{0}] Fourth row: {1}", moduleId, allLetters[3].Select(y => y.name).Join(", "));
         Debug.LogFormat(@"[Elder Password #{0}] Fifth row: {1}", moduleId, allLetters[4].Select(y => y.name).Join(", "));
         Debug.LogFormat(@"[Elder Password #{0}] Sixth row: {1}", moduleId, allLetters[5].Select(y => y.name).Join(", "));
-        Debug.LogFormat(@"[Elder Password #{0}] ----------DEFUSER INPUT----------", moduleId, rnd.Seed);
+        Debug.LogFormat(@"[Elder Password #{0}] ----------DEFUSER INPUT----------", moduleId);
     }
 
     private IEnumerator Toggle(int amount, bool up)
@@ -552,9 +552,27 @@ public class ElderPasswordScript : MonoBehaviour
 
             Submit.OnInteract();
         }
-
         else
+        {
             yield return "sendtochaterror Invalid Command";
+            yield break;
+        }
+    }
+
+    IEnumerator TwitchHandleForcedSolve()
+    {
+        Debug.LogFormat(@"[Elder Password #{0}] Module was force solved by TP", moduleId);
+
+        for (var i = 0; i < 6; i++)
+        {
+            while (currentActiveRune[i] != correctLetterIxs[i])
+            {
+                dArrows[i].OnInteract();
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+        Submit.OnInteract();
+        yield return new WaitForSeconds(0.1f);
     }
 }
 
